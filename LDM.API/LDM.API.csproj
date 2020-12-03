@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <AWSProjectType>Lambda</AWSProjectType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.Core" Version="3.5.1.27" />
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.3.105.34" />
+    <PackageReference Include="Amazon.Lambda.Core" Version="1.1.0" />
+    <PackageReference Include="Amazon.Lambda.Serialization.Json" Version="1.7.0" />
+    <PackageReference Include="Amazon.Lambda.APIGatewayEvents" Version="2.1.0" />
+    <PackageReference Include="AWSSDK.Lambda" Version="3.5.0" />
+    <PackageReference Include="AWSSDK.S3" Version="3.5.3.5" />
+    <PackageReference Include="Dapper" Version="2.0.35" />
+    <PackageReference Include="MySql.Data" Version="8.0.22" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="System.Security.Permissions" Version="4.7.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LDM.Core\LDM.Core.csproj" />
+    <ProjectReference Include="..\LDM.Data\LDM.Data.csproj" />
+    <ProjectReference Include="..\LDM.Services\LDM.Services.csproj" />
+    <ProjectReference Include="..\LDM.Utility\LDM.Utility.csproj" />
+  </ItemGroup>
+</Project>
