@@ -1,0 +1,17 @@
+trigger:
+- develop
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'readme.md'
+    ArtifactName: 'HelloWorld-Artifact'
+    publishLocation: 'Container'
+- task: Create a Helloworld zip file for Lambda Authorizer
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
+    ArtifactName: 'HelloWorld-Artifact'
+    PublishLocation: 'Container'
