@@ -1,0 +1,2267 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "AWS Serverless API for LDM Application.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "Parent Stacks"
+          },
+          "Parameters": [
+            "ParentVPCStack",
+            "ParentS3Stack",
+            "ParentRDSStack",
+            "LambdaAuthorizerTemplate"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Other values"
+          },
+          "Parameters": [
+            "CORSAllowUrl",
+            "DBName",
+            "DownloadUrlTimeOut",
+            "BrowserDownloadLimit"
+          ]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "ParentVPCStack": {
+      "Description": "Stack name of parent VPC stack based on vpc template.",
+      "Type": "String"
+    },
+    "ParentS3Stack": {
+      "Description": "Stack name of parent client stack based on S3-datasync.yaml template.",
+      "Type": "String"
+    },
+    "ParentRDSStack": {
+      "Description": "Stack name of parent client stack based on rds-aurora.yaml template.",
+      "Type": "String"
+    },
+    "LambdaAuthorizerTemplate": {
+      "Description": "Stack name of lambda authorizer template.",
+      "Type": "String"
+    },
+    "CORSAllowUrl": {
+      "Type": "String",
+      "Description": "URL allowed for CORS. if blank it will take it as '*'",
+      "Default": "*"
+    },
+    "DBName": {
+      "Type": "String",
+      "Description": "Name of Database",
+      "MinLength": "0"
+    },
+    "DownloadUrlTimeOut": {
+      "Type": "String",
+      "Description": "DownloadUrlTimeOut",
+      "MinLength": "0"
+    },
+    "BrowserDownloadLimit": {
+      "Type": "String",
+      "Description": "BrowserDownloadLimit",
+      "MinLength": "0"
+    },
+    "Stage": {
+      "Type": "String",
+      "Description": "Stage name of API. Default is 'dev', if nothing is mentioned",
+      "Default": "dev"
+    }
+  },
+  "Resources": {
+    "APIResource": {
+      "Type": "AWS::Serverless::Api",
+      "Properties": {
+        "GatewayResponses": {
+          "UNAUTHORIZED": {
+            "StatusCode": 401,
+            "ResponseParameters": {
+              "Headers": {
+                "Access-Control-Allow-Origin": {
+                  "Fn::Sub": "'${CORSAllowUrl}'"
+                }
+              }
+            }
+          }
+        },
+        "StageName": {
+          "Ref": "Stage"
+        },
+        "Cors": {
+          "AllowMethods": "'POST'",
+          "AllowOrigin": {
+            "Fn::Sub": "'${CORSAllowUrl}'"
+          },
+          "AllowHeaders": "'Content-Type'"
+        },
+        "Auth": {
+          "Authorizers": {
+            "LDMLambdaRequestAuthorizer": {
+              "FunctionPayloadType": "TOKEN",
+              "FunctionArn": {
+                "Fn::ImportValue": {
+                  "Fn::Sub": "${LambdaAuthorizerTemplate}-lambdaAuth"
+                }
+              },
+              "Identity": {
+                "ValidationExpression": "Bearer (.*)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "GetCategoryParams": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::GetCategoryParams",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to get a list of category parameters",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/GetCategoryParams",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "GetUserDetails": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::GetUserDetails",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to Get User Details",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/GetUserDetails",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "GetUserCategories": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::GetUserCategories",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to Ge tUser Categories",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/GetUserCategories",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "GetSearchResults": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::GetSearchResults",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to get a list of search results",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/GetSearchResults",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "GetSearchOperators": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::GetSearchOperators",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to get a list of search operators",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/GetSearchOperators",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "DownloadDocumentById": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::DownloadDocumentById",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to get a list of documents by id",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "DownloadUrlTimeOut": {
+              "Ref": "DownloadUrlTimeOut"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/DownloadDocumentById",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "DownloadDocument": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::DownloadDocument",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to get a list of documents",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "DownloadUrlTimeOut": {
+              "Ref": "DownloadUrlTimeOut"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/DownloadDocument",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "DownloadDocumentZIP": {
+      "DependsOn": "EmailDocumentZIP",
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::DownloadDocumentZIP",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to download document zip file",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "DownloadUrlTimeOut": {
+              "Ref": "DownloadUrlTimeOut"
+            },
+            "EmailFunction": {
+              "Ref": "EmailDocumentZIP"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "BrowserDownloadLimit": {
+              "Ref": "BrowserDownloadLimit"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/DownloadDocumentZIP",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    },
+    "SendEmail": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::SendEmail",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function Send Email",
+        "MemorySize": 512,
+        "Timeout": 120,
+        "Role": null,
+        "Policies": ["AWSLambdaFullAccess"]
+      }
+    },
+    "EmailDocumentZIP": {
+      "DependsOn": "SendEmail",
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::EmailDocumentZIP",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to Get User Details",
+        "MemorySize": 512,
+        "Timeout": 900,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "SendEmailFunction": {
+              "Ref": "SendEmail"
+            },
+            "DownloadUrlTimeOut": {
+              "Ref": "DownloadUrlTimeOut"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "GetFileDownloadDetails": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "LDM.API::LDM.API.Functions::GetFileDownloadDetails",
+        "Runtime": "dotnetcore2.1",
+        "CodeUri": "",
+        "Description": "Function to get a file download details",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [
+          "AWSLambdaFullAccess",
+          "AWSLambdaVPCAccessExecutionRole",
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    ":",
+                    [
+                      "arn:aws:s3::",
+                      {
+                        "Fn::ImportValue": {
+                          "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                        }
+                      }
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::Join": [
+                          ":",
+                          [
+                            "arn:aws:s3::",
+                            {
+                              "Fn::ImportValue": {
+                                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+                              }
+                            }
+                          ]
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                },
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation",
+                  "s3:GetObjectVersion",
+                  "s3:GetLifecycleConfiguration"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Resource": {
+                  "Fn::ImportValue": {
+                    "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+                  }
+                },
+                "Action": ["secretsmanager:GetSecretValue"]
+              }
+            ],
+            "Version": "2012-10-17"
+          }
+        ],
+        "Environment": {
+          "Variables": {
+            "s3BucketBusiness": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketBusiness"
+              }
+            },
+            "s3BucketHRUS": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentS3Stack}-s3BucketHRUS"
+              }
+            },
+            "CORSAllowUrl": {
+              "Ref": "CORSAllowUrl"
+            },
+            "DBName": {
+              "Ref": "DBName"
+            },
+            "BrowserDownloadLimit": {
+              "Ref": "BrowserDownloadLimit"
+            },
+            "DownloadUrlTimeOut": {
+              "Ref": "DownloadUrlTimeOut"
+            },
+            "Region": {
+              "Ref": "AWS::Region"
+            },
+            "SecretManagerKey": {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentRDSStack}-RDSInstanceRotationSecret"
+              }
+            }
+          }
+        },
+        "VpcConfig": {
+          "SecurityGroupIds": [
+            {
+              "Fn::ImportValue": {
+                "Fn::Sub": "${ParentVPCStack}-ClientSecurityGroup"
+              }
+            }
+          ],
+          "SubnetIds": {
+            "Fn::Split": [
+              ",",
+              {
+                "Fn::Join": [
+                  ",",
+                  [
+                    {
+                      "Fn::ImportValue": {
+                        "Fn::Sub": "${ParentVPCStack}-ApplicationSubnets"
+                      }
+                    }
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/api/DownloadDocumentById",
+              "Auth": {
+                "Authorizer": "LDMLambdaRequestAuthorizer"
+              },
+              "RestApiId": {
+                "Ref": "APIResource"
+              },
+              "Method": "POST"
+            }
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ApiURL": {
+      "Description": {
+        "Fn::Sub": "API endpoint URL for ${Stage} environment"
+      },
+      "Value": {
+        "Fn::Sub": "https://${APIResource}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
+      }
+    }
+  }
+}

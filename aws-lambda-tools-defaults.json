@@ -1,0 +1,18 @@
+
+{
+    "Information" : [
+        "This file provides default values for the deployment wizard inside Visual Studio and the AWS Lambda commands added to the .NET Core CLI.",
+        "To learn more about the Lambda commands with the .NET Core CLI execute the following command at the command line in the project root directory.",
+        "dotnet lambda help",
+        "All the command line options for the Lambda command can be specified in this file."
+    ],
+    "profile"     : "AWS_Security",
+    "region"      : "ap-south-1",
+    "configuration" : "Release",
+    "framework"     : "netcoreapp2.1",
+    "s3-prefix"     : "LDM-API-QA3/",
+    "template"      : "serverless.template",
+    "s3-bucket"     : "ldm-psl-api",
+    "stack-name"    : "LDM-API-QA3",
+    "template-parameters" : "\"DBName\"=\"test\";\"CORSAllowUrl\"=\"*\";\"DownloadUrlTimeOut\"=\"12\";\"BrowserDownloadLimit\"=\"12\";\"Region\"=\"APSouth1\";\"SecretManagerKey\"=\"test\""
+}
